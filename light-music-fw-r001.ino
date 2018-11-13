@@ -1,3 +1,4 @@
+// r005.0
 
 //FFT stuff------------------------------------------------------------------
 #define FFTLEN 1024
@@ -21,19 +22,22 @@ volatile static bool dma1_ch1_Active;
 #include <libmaple/rcc.h>
 #include <libmaple/adc.h>
 
-
-// modes
+// modes------------------------------------------------------------------------
 // #include "modes/Fireworks.h"
 
 //Configurable_parameters------------------------------------------------------
-
 int bins = 10; //max = 240
 
 uint32_t vol_threshold = 55; ////remove the noise
 float low_freq_threshold = 0.15;
 float high_freq_threshold = 3.5;
 
-uint8_t pattern = 6; //1 or 2
+// pattern = 1
+// pattern = 2
+// pattern = 3: Liquid
+// pattern = 4: Fireworks
+// pattern = 5: CandleJars
+uint8_t pattern = 4;
 
 //For pattern_1
 float p1_coeff_fading_light = 30; //30*37 = 1100 ms
@@ -573,9 +577,9 @@ private:
 	}
 };
 
-Liquid* mode4 = new Liquid(&pixels);
-Fireworks* mode5 = new Fireworks(&pixels);
-CandleJars* mode6 = new CandleJars(&pixels);
+Liquid* mode3 = new Liquid(&pixels);
+Fireworks* mode4 = new Fireworks(&pixels);
+CandleJars* mode5 = new CandleJars(&pixels);
 
 uint16_t asqrt(uint32_t x)
 { //good enough precision, 10x faster than regular sqrt
@@ -727,47 +731,47 @@ uint32_t adjustBrightness(uint32_t c, float amt)
 
 void pattern_1(uint32_t *data)
 {
-	// for (int i = 0; i < NUMPIXELS; i++)
-	// {
-	// 	Serial.println(i);
-	// 	// Serial.print("\t");
-	// 	// Serial.println(data[i]);
-	// 	if (data[i] > 255)
-	// 	{
-	// 		data[i] = 255;
-	// 	}
-	// 	// якщо висока амплітуда або вже затухло
-	// 	if ((data[i] > 200) || (current[i] < 0.01))
-	// 	{
-	// 		// k[i] diapasone 0..30; bigger harmonic -> smaller k[i] // k[i] - attenuation iteration
-	// 		// рахуємо ітерацію затухання, всього 30 (30 значить вже мінімум, 0 - максимум)
-	// 		k[i] = (p1_coeff_fading_light * (256 - data[i])) / 255;
-	// 	}
+	for (int i = 0; i < NUMPIXELS; i++)
+	{
+		Serial.println(i);
+		// Serial.print("\t");
+		// Serial.println(data[i]);
+		if (data[i] > 255)
+		{
+			data[i] = 255;
+		}
+		// якщо висока амплітуда або вже затухло
+		if ((data[i] > 200) || (current[i] < 0.01))
+		{
+			// k[i] diapasone 0..30; bigger harmonic -> smaller k[i] // k[i] - attenuation iteration
+			// рахуємо ітерацію затухання, всього 30 (30 значить вже мінімум, 0 - максимум)
+			k[i] = (p1_coeff_fading_light * (256 - data[i])) / 255;
+		}
 
-	// 	// always? рахуємо інтенсивнсть
-	// 	if (k[i] <= p1_coeff_fading_light)  // 30
-	// 	{
-	// 		k[i]++;  // k[i]: 1..31
-	// 		current[i] = 1.0 - sqrt(k[i] / p1_coeff_fading_light);  // current[i]: 0..1
-	// 	}
-	// 	Serial.print("k[i]: ");
-	// 	Serial.println(k[i]);
+		// always? рахуємо інтенсивнсть
+		if (k[i] <= p1_coeff_fading_light)  // 30
+		{
+			k[i]++;  // k[i]: 1..31
+			current[i] = 1.0 - sqrt(k[i] / p1_coeff_fading_light);  // current[i]: 0..1
+		}
+		Serial.print("k[i]: ");
+		Serial.println(k[i]);
 
-	// 	// розмазуєм інтенсивності
-	// 	current[i] = (current[i] + p1_coeff_smooth * current[i - 1]) / (1.0 + p1_coeff_smooth);  // розмазування
-	// 	Serial.print("current[i]: ");
-	// 	Serial.println(current[i]);
+		// розмазуєм інтенсивності
+		current[i] = (current[i] + p1_coeff_smooth * current[i - 1]) / (1.0 + p1_coeff_smooth);  // розмазування
+		Serial.print("current[i]: ");
+		Serial.println(current[i]);
 
-	// 	uint32_t color = adjustBrightness(pixels.Color(p1_color_r, p1_color_g, p1_color_b), current[i]);
-	// 	Serial.print("color: ");
-	// 	Serial.println(color);
-	// 	Serial.println(" ");
+		uint32_t color = adjustBrightness(pixels.Color(p1_color_r, p1_color_g, p1_color_b), current[i]);
+		Serial.print("color: ");
+		Serial.println(color);
+		Serial.println(" ");
 
-	// 	for (int j = 0; j < NUM_REPEAT; j++)
-	// 	{
-	// 		pixels.setPixelColor(j * NUMPIXELS + i, color);
-	// 	}
-	// }
+		for (int j = 0; j < NUM_REPEAT; j++)
+		{
+			pixels.setPixelColor(j * NUMPIXELS + i, color);
+		}
+	}
 }
 
 void pattern_2(uint32_t *data)
@@ -813,6 +817,11 @@ void pattern_2(uint32_t *data)
 	}
 }
 
+void pattern_3()
+{
+	mode3->run();
+}
+
 void pattern_4()
 {
 	mode4->run();
@@ -821,11 +830,6 @@ void pattern_4()
 void pattern_5()
 {
 	mode5->run();
-}
-
-void pattern_6()
-{
-	mode6->run();
 }
 
 void setup()
@@ -879,7 +883,7 @@ void takeSamples()
 	}
 	else if (pattern == 3)
 	{
-		// pattern_3();
+		pattern_3();
 	}
 	else if (pattern == 4)
 	{
@@ -888,10 +892,6 @@ void takeSamples()
 	else if (pattern == 5)
 	{
 		pattern_5();
-	}
-	else if (pattern == 6)
-	{
-		pattern_6();
 	}
 }
 
