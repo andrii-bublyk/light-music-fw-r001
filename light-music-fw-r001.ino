@@ -77,10 +77,12 @@ public:
 	{
 		this->fire_iteration = 0;
 		this->pixels = pixels;
-		this->wave_length = 10;
 		this->current_node = 1;
 		this->current_state = 0;
 		this->state_finished = false;
+		attenuation_r = (float)(FIRE_COLOR_R - BACKGROUND_COLOR_R)/ATTENUATION_ITERATIONS_NUMBER;
+		attenuation_g = (float)(FIRE_COLOR_G - BACKGROUND_COLOR_G)/ATTENUATION_ITERATIONS_NUMBER;
+		attenuation_b = (float)(FIRE_COLOR_B - BACKGROUND_COLOR_B)/ATTENUATION_ITERATIONS_NUMBER;
 	}
 
     void run()
@@ -89,7 +91,7 @@ public:
 		if (state_finished == true)
 		{
 			current_state++;
-			if (current_state >= 3)
+			if (current_state >= 4)
 			{
 				current_state = 0;
 			}
@@ -99,6 +101,8 @@ public:
 		{
 			// calc node
 			Serial.println("current_state = 0");
+			uint8_t max_nodes_number = NUMPIXELS/FIRE_WAVE_LENGTH - 1;
+			current_node = random(1, max_nodes_number + 1);
 			state_finished = true;
 		}
 		else if (current_state == 1)
@@ -106,66 +110,117 @@ public:
 			Serial.println("current_state = 1");
 			// move fire
 			fire_iteration++;
-			uint8_t first_fire_head_led = current_node * 30 - fire_iteration - 1;
-			uint8_t second_fire_head_led = current_node * 30 + fire_iteration - 1;
+			uint8_t first_fire_head_led = current_node * FIRE_WAVE_LENGTH - fire_iteration - 1;
+			uint8_t second_fire_head_led = current_node * FIRE_WAVE_LENGTH + fire_iteration;
 
-			uint32_t current_color = 0;
-			for (int i = 0; i < 120; i++)
+			for (int i = 0; i < NUMPIXELS; i++)
 			{
 				if (i == first_fire_head_led || i == second_fire_head_led)
 				{
-					current_color = adjust_brightness(pixels->Color(fire_color_r, fire_color_g, fire_color_b), 90);
+					color[i] = adjust_brightness(pixels->Color(FIRE_COLOR_R, FIRE_COLOR_G, FIRE_COLOR_B), 100);
 				}
-				else if (i > first_fire_head_led && i < 30*current_node)
+				else if (i > first_fire_head_led && i < FIRE_WAVE_LENGTH*current_node)
 				{
-					uint8_t temp_brightness = 100 / ((i - first_fire_head_led)*2);
-					current_color = adjust_brightness(pixels->Color(fire_color_r, fire_color_g, fire_color_b), temp_brightness);
+					uint8_t temp_brightness = 100 / sqrt(i - first_fire_head_led);
+					color[i] = adjust_brightness(pixels->Color(FIRE_COLOR_R, FIRE_COLOR_G, FIRE_COLOR_B), temp_brightness);
 				}
-				else if (i >= 30*current_node && i < second_fire_head_led)
+				else if (i >= FIRE_WAVE_LENGTH*current_node && i < second_fire_head_led)
 				{
-					uint8_t temp_brightness = 100 / ((second_fire_head_led - i)*2);
-					current_color = adjust_brightness(pixels->Color(fire_color_r, fire_color_g, fire_color_b), temp_brightness);
+					uint8_t temp_brightness = 100 / sqrt(second_fire_head_led - i);
+					color[i] = adjust_brightness(pixels->Color(FIRE_COLOR_R, FIRE_COLOR_G, FIRE_COLOR_B), temp_brightness);
 				}
 				else
 				{
-					current_color = adjust_brightness(pixels->Color(background_color_r,
-																	background_color_g,
-																	background_color_b), background_color_brightness);
+					color[i] = pixels->Color(BACKGROUND_COLOR_R, BACKGROUND_COLOR_G, BACKGROUND_COLOR_B);
 				}
-				this->pixels->setPixelColor(i, current_color);
+				
+				pixels->setPixelColor(i, color[i]);
 			}
 
-			if (fire_iteration == 30)
+			if (fire_iteration >= FIRE_WAVE_LENGTH - 1)
 			{
 				fire_iteration = 0;
 				state_finished = true;
 			}
 		}
-		else if (current_state == 2)
+		if (current_state == 2)
 		{
-			Serial.println("current_state = 2");
-			// run stars
-			stars_count++;
-			
-			uint32_t current_color = 0;
-			for (int i = 0; i < 120; i++)
+			// attenuation
+			// Serial.println("current_state = 2");
+			attenuation_counter++;
+
+			for (int i = 0; i < NUMPIXELS; i++)
 			{
-				if (i == 30 - stars_count || i == 30 + stars_count)
+				uint32_t prev_color = color[i];
+				uint8_t prev_color_r = (uint8_t)(prev_color >> 16);
+				uint8_t prev_color_g = (uint8_t)(prev_color >> 8);
+				uint8_t prev_color_b = (uint8_t)prev_color;
+				
+				int current_color_r;
+				int current_color_g;
+				int current_color_b;
+				
+				int low_diapasone = BACKGROUND_COLOR_R - attenuation_g * 2;
+				int high_diapasone = BACKGROUND_COLOR_R + attenuation_g * 2;
+				
+				current_color_r = prev_color_r - (uint8_t)(attenuation_r * attenuation_counter);
+				if (current_color_r < BACKGROUND_COLOR_R)
 				{
-					current_color = adjust_brightness(pixels->Color(star_color_r, star_color_g, star_color_b), star_color_brightness);
+					current_color_r = BACKGROUND_COLOR_R;
+				}
+				
+				current_color_g = prev_color_g - (uint8_t)(attenuation_g * attenuation_counter);
+				if (current_color_g < BACKGROUND_COLOR_G)
+				{
+					current_color_g = BACKGROUND_COLOR_G;
+				}
+
+				current_color_b = prev_color_b - (uint8_t)(attenuation_b * attenuation_counter);
+				if (current_color_b < BACKGROUND_COLOR_B)
+				{
+					current_color_b = BACKGROUND_COLOR_B;
+				}
+
+				color[i] = pixels->Color((uint8_t)current_color_r, (uint8_t)current_color_g, (uint8_t)current_color_b);
+				pixels->setPixelColor(i, color[i]);
+			}
+			if (attenuation_counter >= ATTENUATION_ITERATIONS_NUMBER/2)
+			{
+				attenuation_counter = 0;
+				state_finished = true;
+			}
+			delay(40);
+		}
+		else if (current_state == 3)
+		{
+			Serial.println("current_state = 3");
+			// run stars
+			
+			star_lighting_iteration_number++;
+			uint32_t current_color = 0;
+			for (int i = 0; i < NUMPIXELS; i++)
+			{
+				if (i == current_node * FIRE_WAVE_LENGTH - first_wire_star_position || i == current_node * FIRE_WAVE_LENGTH + second_wire_star_position)
+				{
+					current_color = adjust_brightness(pixels->Color(STAR_COLOR_R, STAR_COLOR_G, STAR_COLOR_B),
+													 star_lighting_iteration_number * (STAR_COLOR_BRIGHTNESS/STAR_LIGHTING_ITERATIONS_COUNT));
 				}
 				else
 				{
-					current_color = adjust_brightness(pixels->Color(background_color_r,
-																	background_color_g,
-																	background_color_b), background_color_brightness);
+					current_color = pixels->Color(BACKGROUND_COLOR_R, BACKGROUND_COLOR_G, BACKGROUND_COLOR_B);
 				}
 				pixels->setPixelColor(i, current_color);
 			}
-			delay(100);
-			if (stars_count >= stars_number)
+			delay(30);
+			if(star_lighting_iteration_number >= STAR_LIGHTING_ITERATIONS_COUNT)
 			{
-				stars_count = 0;
+				stars_number++;
+				first_wire_star_position = random(0, FIRE_WAVE_LENGTH);
+				second_wire_star_position = random(0, FIRE_WAVE_LENGTH);
+			}
+			if (stars_number >= STAR_COUNT)
+			{
+				stars_number = 0;
 				state_finished = true;
 			}
 		}
@@ -174,26 +229,36 @@ private:
     WS2812B* pixels;
     uint8_t fire_iteration;
     uint8_t current_node;
-	uint8_t wave_length;
-	uint8_t root_node;
 	uint8_t current_state;
 	bool state_finished;
-	
-	uint8_t background_color_r = 0;
-	uint8_t background_color_g = 0;
-	uint8_t background_color_b = 0;
-	uint8_t background_color_brightness = 0;
+	uint32_t color[NUMPIXELS];
 
-	uint8_t fire_color_r = 200;
-	uint8_t fire_color_g = 0;
-	uint8_t fire_color_b = 0;
+	uint8_t const FIRE_WAVE_LENGTH = 15;
 
-	uint8_t star_color_r = 200;
-	uint8_t star_color_g = 200;
-	uint8_t star_color_b = 200;
-	uint8_t star_color_brightness = 90;
-	uint8_t stars_count = 0;
-	uint8_t stars_number = 5;
+	uint8_t const BACKGROUND_COLOR_R = 20;
+	uint8_t const BACKGROUND_COLOR_G = 0;
+	uint8_t const BACKGROUND_COLOR_B = 0;
+
+	uint8_t const FIRE_COLOR_R = 200;
+	uint8_t const FIRE_COLOR_G = 0;
+	uint8_t const FIRE_COLOR_B = 0;
+
+	uint8_t const ATTENUATION_ITERATIONS_NUMBER = 30;
+	uint8_t attenuation_counter = 0;
+	float attenuation_r;
+	float attenuation_g;
+	float attenuation_b;
+
+	uint8_t const STAR_COLOR_R = 200;
+	uint8_t const STAR_COLOR_G = 200;
+	uint8_t const STAR_COLOR_B = 200;
+	uint8_t const STAR_COLOR_BRIGHTNESS = 100;
+	uint8_t const STAR_COUNT = 7;
+	uint8_t stars_number = 0;
+	uint8_t const STAR_LIGHTING_ITERATIONS_COUNT = 20;
+	uint8_t star_lighting_iteration_number = 0;
+	uint8_t first_wire_star_position = 4;
+	uint8_t second_wire_star_position = 2;
 
     uint32_t adjust_brightness(uint32_t c, uint8_t amt)
 	{
