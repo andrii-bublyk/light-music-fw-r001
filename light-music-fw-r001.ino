@@ -37,7 +37,7 @@ float high_freq_threshold = 3.5;
 // pattern = 3: Liquid
 // pattern = 4: Fireworks
 // pattern = 5: CandleJars
-uint8_t pattern = 4;
+uint8_t pattern = 3;
 
 //For pattern_1
 float p1_coeff_fading_light = 30; //30*37 = 1100 ms
