@@ -279,13 +279,13 @@ private:
 class Liquid
 {
 public:
-	Liquid(WS2812B* pixels)
+	Liquid(WS2812B* pixels, uint8_t mode)
 	{
 		this->pixels = pixels;
-		this->mode = 2;
+		this->mode = mode;
 
 		noize_coefficient = 25;
-		prev_noize_coefficient = noize_coefficient = 25;
+		prev_noize_coefficient = 25;
 		this->wave_length = 17;
 		this->wave_peak_led = 11;
 
@@ -300,19 +300,15 @@ public:
 		this->wave_static_brightness = 10;  // in percent
 
 		this->wave_flooding_cycle = 0;
-
-		// first_color_init();
 	}
 
-	void run(uint32_t *harmonic_amplitudes)
+	void run(uint32_t* harmonic_amplitudes)
 	{
 		calculate_noize_value(harmonic_amplitudes);
 		calculate_color();
-		for (uint8_t i = 0; i < PIXELS_NUMBER; i++)
+		for (uint8_t i = 0; i < NUMPIXELS; i++)
 		{
 			this->pixels->setPixelColor(i, color[i]);
-
-
 			// if (i < 60)
 			// {
 			// 	uint32_t current_led_color = color[i];
@@ -327,11 +323,9 @@ public:
 			// 	Serial.println(" ");
 			// }
 		}
-		
 	}
 
 private:
-	uint8_t PIXELS_NUMBER = 120;
 	WS2812B* pixels;
 	// mode = 0: changing wave speed (bigger noize -> faster wave)
 	// mode = 1: changing wave brightness (bigger noize -> brighter wave)
@@ -391,10 +385,10 @@ private:
 
 			temp += harmonic_amplitudes[i] / NUMPIXELS;
 		}
-		if (counter == 21)
+		if (counter >= speed_factor+1)
 		{
 			temp /= 2.55;
-			temp /= 21;
+			temp /= speed_factor+1;
 			temp *= 10;
 			if (temp > 100.0)
 			{
@@ -411,7 +405,7 @@ private:
 		
 	}
 
-	void first_color_init()
+	void color_init()
 	{
 		calculate_mode_parameter();
 		calculate_wave_borders();
@@ -431,7 +425,7 @@ private:
 		uint8_t wave_static_color_r = (uint8_t)(wave_static_color >> 16);
 		uint8_t wave_static_color_g = (uint8_t)(wave_static_color >> 8);
 		uint8_t wave_static_color_b = (uint8_t)wave_static_color;
-		for (uint8_t i = 0; i < PIXELS_NUMBER; i++)
+		for (uint8_t i = 0; i < NUMPIXELS; i++)
 		{
 			if (i >= wave_first_led && i < wave_peak_led)
 			{
@@ -523,15 +517,12 @@ private:
 
 	void calculate_color()
 	{
-		// uint8_t speed_factor = 1;
 		if (wave_flooding_cycle == 0)
 		{
 			calculate_colors_cycle_change(speed_factor);
 		}
 		
-		// Serial.print("wave_flooding_cycle: ");
-		// Serial.println(wave_flooding_cycle);
-		for (uint8_t i = 0; i < PIXELS_NUMBER; i++)
+		for (uint8_t i = 0; i < NUMPIXELS; i++)
 		{
 			if (i > wave_first_led && i <= wave_last_led)
 			{
@@ -545,7 +536,6 @@ private:
 				current_led_color_b = color_b_c[i - wave_first_led] - (blue_color_cycle_change[i - wave_first_led] * wave_flooding_cycle);
 				
 				color[i] = this->pixels->Color(current_led_color_r, current_led_color_g, current_led_color_b);
-				// Serial.println(current_led_color_r);
 			}
 		}
 
@@ -553,24 +543,19 @@ private:
 		if (wave_flooding_cycle > speed_factor)
 		{
 			wave_flooding_cycle = 0;
-			if (wave_peak_led >= PIXELS_NUMBER)
+			if (wave_peak_led >= NUMPIXELS)
 			{
 				wave_peak_led = 0;
 			}
 			wave_peak_led++;
 
-			first_color_init();
-			// Serial.println(wave_first_led);
-			// Serial.println(wave_last_led);
+			color_init();
 		}
 	}
 
 	void calculate_colors_cycle_change(uint8_t wave_flooding_cycles)
 	{
 		uint32_t current_color;
-		// uint8_t color_r_c;
-		// uint8_t color_g_c;
-		// uint8_t color_b_c;
 
 		uint32_t next_color;
 		uint8_t color_r_n;
@@ -585,11 +570,11 @@ private:
 		{
 			uint8_t current_index = i + wave_first_led;
 			uint8_t next_index = i + wave_first_led + 1;
-			if (current_index >= PIXELS_NUMBER)
+			if (current_index >= NUMPIXELS)
 			{
 				current_index = 0;
 			}
-			if (next_index >= PIXELS_NUMBER)
+			if (next_index >= NUMPIXELS)
 			{
 				current_index = 0;
 			}
@@ -608,24 +593,9 @@ private:
 			green_color_diff = color_g_n - color_g_c[i];
 			blue_color_diff = color_b_n - color_b_c[i];
 
-			// Serial.print("red_color_diff[i]: ");
-			// Serial.println(red_color_diff);
-			// Serial.print("green_color_diff[i]: ");
-			// Serial.println(green_color_diff);
-			// Serial.print("blue_color_diff[i]: ");
-			// Serial.println(blue_color_diff);
-
 			red_color_cycle_change[i] = (float)red_color_diff / wave_flooding_cycles;
 			green_color_cycle_change[i] = (float)green_color_diff / wave_flooding_cycles;
 			blue_color_cycle_change[i] = (float)blue_color_diff / wave_flooding_cycles;
-
-			// Serial.print("red_color_cycle_change[i]: ");
-			// Serial.println(red_color_cycle_change[i]);
-			// Serial.print("green_color_cycle_change[i]: ");
-			// Serial.println(green_color_cycle_change[i]);
-			// Serial.print("blue_color_cycle_change[i]: ");
-			// Serial.println(blue_color_cycle_change[i]);
-			// Serial.println();
 		}
 		red_color_cycle_change[(wave_last_led - wave_first_led)/2] *= -1;
 		green_color_cycle_change[(wave_last_led - wave_first_led)/2] *= -1;
@@ -634,32 +604,17 @@ private:
 		red_color_cycle_change[wave_length - 1] = red_color_cycle_change[1] * (-1);
 		green_color_cycle_change[wave_length - 1] = green_color_cycle_change[1] * (-1);
 		blue_color_cycle_change[wave_length - 1] = blue_color_cycle_change[1] * (-1);
-
-		// Serial.print("color_cycle_change: ");
-		// for (int i = 0; i < wave_length; i++)
-		// {
-		// 	Serial.print(red_color_cycle_change[i]);
-		// 	Serial.print(", ");
-		// }
-		// Serial.println(" ");
-		// Serial.print("color_r_c: ");
-		// for (int i = 0; i < wave_length; i++)
-		// {
-		// 	Serial.print(color_r_c[i]);
-		// 	Serial.print(", ");
-		// }
-		// Serial.println(" ");
 	}
 
 	void calculate_wave_borders()
 	{
 		this->wave_first_led = wave_peak_led - (wave_length/2);
-		if (this->wave_first_led >= PIXELS_NUMBER)
+		if (this->wave_first_led >= NUMPIXELS)
 		{
 			this->wave_first_led = 0;
 		}
 		this->wave_last_led = wave_peak_led + (wave_length/2);
-		if (this->wave_last_led >= PIXELS_NUMBER)
+		if (this->wave_last_led >= NUMPIXELS)
 		{
 			this->wave_last_led = 0;
 		}
@@ -755,7 +710,7 @@ private:
 	}
 };
 
-Liquid* mode3 = new Liquid(&pixels);
+Liquid* mode3 = new Liquid(&pixels, 2);
 Fireworks* mode4 = new Fireworks(&pixels);
 CandleJars* mode5 = new CandleJars(&pixels);
 
