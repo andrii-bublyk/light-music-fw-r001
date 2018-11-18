@@ -37,7 +37,7 @@ float high_freq_threshold = 3.5;
 // pattern = 3: Liquid
 // pattern = 4: Fireworks
 // pattern = 5: CandleJars
-uint8_t pattern = 4;
+uint8_t pattern = 3;
 
 //For pattern_1
 float p1_coeff_fading_light = 30; //30*37 = 1100 ms
@@ -336,49 +336,46 @@ private:
 class Liquid
 {
 public:
+	uint8_t const wave_length = 17;
+	uint8_t peak_color_r = 200;
+	uint8_t peak_color_g = 56;
+	uint8_t peak_color_b = 0;
+	uint8_t wave_peak_brightness = 50;  // in percent
+
+	uint8_t static_color_r = 25;
+	uint8_t static_color_g = 100;
+	uint8_t static_color_b = 100;
+	uint8_t wave_static_brightness = 10;  // in percent
+
 	Liquid(WS2812B* pixels, uint8_t mode)
 	{
 		this->pixels = pixels;
 		this->mode = mode;
+		speed_factor = 5;
 
 		noize_coefficient = 25;
 		prev_noize_coefficient = 25;
-		this->wave_length = 17;
-		this->wave_peak_led = 11;
+		wave_peak_led = 11;
 
-		this->peak_color_r = 200;
-		this->peak_color_g = 56;
-		this->peak_color_b = 0;
-		this->wave_peak_brightness = 50;  // in percent
+		wave_flooding_cycle = 0;
+		color = new uint32_t[NUMPIXELS];
 
-		this->static_color_r = 25;
-		this->static_color_g = 100;
-		this->static_color_b = 200;
-		this->wave_static_brightness = 10;  // in percent
+		red_color_cycle_change = new float[wave_length];
+		green_color_cycle_change = new float[wave_length];
+	 	blue_color_cycle_change = new float[wave_length];
 
-		this->wave_flooding_cycle = 0;
+		color_r_c = new uint8_t[wave_length];
+		color_g_c = new uint8_t[wave_length];
+		color_b_c = new uint8_t[wave_length];
 	}
 
 	void run(uint32_t* harmonic_amplitudes)
 	{
 		calculate_noize_value(harmonic_amplitudes);
-		calculate_color();
+		calculate_color(harmonic_amplitudes);
 		for (uint8_t i = 0; i < NUMPIXELS; i++)
 		{
 			this->pixels->setPixelColor(i, color[i]);
-			// if (i < 60)
-			// {
-			// 	uint32_t current_led_color = color[i];
-			// 	uint8_t current_led_color_r = (uint8_t)(current_led_color >> 16);
-			// 	uint8_t current_led_color_g = (uint8_t)(current_led_color >> 8);
-			// 	uint8_t current_led_color_b = (uint8_t)current_led_color;
-			// 	Serial.print(current_led_color_r);
-			// 	Serial.print(", ");
-			// }
-			// if (i == 60)
-			// {
-			// 	Serial.println(" ");
-			// }
 		}
 	}
 
@@ -387,39 +384,28 @@ private:
 	// mode = 0: changing wave speed (bigger noize -> faster wave)
 	// mode = 1: changing wave brightness (bigger noize -> brighter wave)
 	// mode = 2: changing static color brightness (bigger noize -> brighter static color)
-	uint8_t mode; // [0..2]
+	uint8_t mode;  // [0..2]
 	uint8_t noize_coefficient;  // [0...100]
 	uint8_t prev_noize_coefficient;  // [0...100]
-	uint8_t speed_factor = 1;  // [1..20]
+	uint8_t speed_factor;  // [1..20]
 
 	uint8_t wave_peak_led;
-	uint8_t wave_length;
 	uint8_t wave_first_led;
 	uint8_t wave_last_led;
 
-	uint32_t color[120];
-
-	uint8_t peak_color_r;
-	uint8_t peak_color_g;
-	uint8_t peak_color_b;
-	uint8_t wave_peak_brightness;
-
-	uint8_t static_color_r;
-	uint8_t static_color_g;
-	uint8_t static_color_b;
-	uint8_t wave_static_brightness;
+	uint32_t* color;
 
 	uint8_t static_color_r_a;
 	uint8_t static_color_g_a;
 	uint8_t static_color_b_a;
 
-	float red_color_cycle_change[17];
-	float green_color_cycle_change[17];
-	float blue_color_cycle_change[17];
+	float* red_color_cycle_change;
+	float* green_color_cycle_change;
+	float* blue_color_cycle_change;
 
-	uint8_t color_r_c[17];
-	uint8_t color_g_c[17];
-	uint8_t color_b_c[17];
+	uint8_t* color_r_c;
+	uint8_t* color_g_c;
+	uint8_t* color_b_c;
 
 	uint8_t wave_flooding_cycle;
 
@@ -446,7 +432,7 @@ private:
 		{
 			temp /= 2.55;
 			temp /= speed_factor+1;
-			temp *= 10;
+			// temp *= 10;
 			if (temp > 100.0)
 			{
 				temp = 100.0;
@@ -516,17 +502,22 @@ private:
 		int noize_change = noize_coefficient - prev_noize_coefficient;
 		if (mode == 0)
 		{
-			// changing wave speed (bigger noize -> faster wave)
-			// int new_speed_factor = speed_factor - noize_change/20;
-			// if (noize_change < 0 && speed_factor < 19)
-			// {
-			// 	speed_factor += 1;
-			// }
-			// else if (noize_change > 0 && speed_factor > 2)
-			// {
-			// 	speed_factor -= 1;
-			// }
-			speed_factor = 21 - noize_coefficient/5;
+			uint8_t temp = noize_coefficient/2;
+			if (temp > 20)
+			{
+				temp = 20;
+			}
+			temp = 21 - temp;
+			int diff = speed_factor - temp;
+			if (diff < 1)
+			{
+				speed_factor++;
+			}
+			else
+			{
+				speed_factor = temp;
+			}
+			
 			if (speed_factor > 20)
 			{
 				speed_factor = 20;
@@ -540,43 +531,60 @@ private:
 		}
 		else if (mode == 1)
 		{
-			//changing wave brightness (bigger noize -> brighter wave)
-			// int new_wave_peak_brightness = wave_peak_brightness + noize_change/10;
-			// if (new_wave_peak_brightness > 100)
-			// {
-			// 	new_wave_peak_brightness = 100;
-			// }
-			// if (new_wave_peak_brightness < 0)
-			// {
-			// 	new_wave_peak_brightness = 0;
-			// }
+			// changing wave brightness (bigger noize -> brighter wave)
+			int new_wave_peak_brightness = prev_noize_coefficient + noize_change/2;
+			if (new_wave_peak_brightness < wave_peak_brightness)
+			{
+				new_wave_peak_brightness = wave_peak_brightness - 2;
+			}
+			if (new_wave_peak_brightness > 100)
+			{
+				new_wave_peak_brightness = 100;
+			}
+			if (new_wave_peak_brightness < 0)
+			{
+				new_wave_peak_brightness = 0;
+			}
 
-			// wave_peak_brightness = new_wave_peak_brightness;
-			wave_peak_brightness = noize_coefficient;
+			wave_peak_brightness = new_wave_peak_brightness;
+			Serial.print("wave_peak_brightness: ");
+			Serial.println(wave_peak_brightness);
+			// wave_peak_brightness = noize_coefficient;
 		}
 		else if (mode == 2)
 		{
 			//changing static color brightness (bigger noize -> brighter static color)
-			// int new_wave_static_brightness = wave_peak_brightness + noize_change/10;
-			// if (new_wave_static_brightness > 100)
-			// {
-			// 	new_wave_static_brightness = 100;
-			// }
-			// if (new_wave_static_brightness < 0)
-			// {
-			// 	new_wave_static_brightness = 0;
-			// }
-
-			// wave_static_brightness = new_wave_static_brightness;
-			wave_static_brightness = noize_coefficient;
+			int new_wave_static_brightness = prev_noize_coefficient + noize_change/2;
+			if (noize_change < -1)
+			{
+				new_wave_static_brightness = wave_static_brightness - 1;
+			}
+			if (new_wave_static_brightness > 100)
+			{
+				new_wave_static_brightness = 100;
+			}
+			if (new_wave_static_brightness < 0)
+			{
+				new_wave_static_brightness = 0;
+			}
+			
+			wave_static_brightness = new_wave_static_brightness;
+			// Serial.print("wave_static_brightness: ");
+			// Serial.println(wave_static_brightness);
 		}
 	}
 
-	void calculate_color()
+	void calculate_color(uint32_t* harmonic_amplitudes)
 	{
 		if (wave_flooding_cycle == 0)
 		{
 			calculate_colors_cycle_change(speed_factor);
+		}
+		
+		if (mode == 2)
+		{
+			calculate_noize_value(harmonic_amplitudes);
+			calculate_mode_parameter();
 		}
 		
 		for (uint8_t i = 0; i < NUMPIXELS; i++)
@@ -593,6 +601,10 @@ private:
 				current_led_color_b = color_b_c[i - wave_first_led] - (blue_color_cycle_change[i - wave_first_led] * wave_flooding_cycle);
 				
 				color[i] = this->pixels->Color(current_led_color_r, current_led_color_g, current_led_color_b);
+			}
+			else
+			{
+				color[i] = adjust_brightness(pixels->Color(static_color_r, static_color_g, static_color_b), wave_static_brightness);
 			}
 		}
 
@@ -769,7 +781,7 @@ private:
 	}
 };
 
-Liquid* mode3 = new Liquid(&pixels, 2);
+Liquid* mode3 = new Liquid(&pixels, 0);
 Fireworks* mode4 = new Fireworks(&pixels);
 CandleJars* mode5 = new CandleJars(&pixels);
 
