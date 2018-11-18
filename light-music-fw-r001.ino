@@ -37,7 +37,7 @@ float high_freq_threshold = 3.5;
 // pattern = 3: Liquid
 // pattern = 4: Fireworks
 // pattern = 5: CandleJars
-uint8_t pattern = 3;
+uint8_t pattern = 5;
 
 //For pattern_1
 float p1_coeff_fading_light = 30; //30*37 = 1100 ms
@@ -640,59 +640,61 @@ private:
 class CandleJars
 {
 public:
-    CandleJars(WS2812B* pixels)
-	{
-		this->pixels = pixels;
-		candles_number = NUMPIXELS/(CANDLE_PIXELS + CANDLE_SPACE);
-		candles_color = new uint32_t [candles_number];
-	}
-
-    void run()
-	{
-		uint8_t curent_brightness = 0;
-		uint8_t segmentSize = CANDLE_PIXELS + CANDLE_SPACE;
-
-		for (int i = 0; i < candles_number; i++)
-		{
-			max_candle_brightness = random(0, 100);
-			min_candle_brightness = random(0, max_candle_brightness);
-			curent_brightness = random(min_candle_brightness, max_candle_brightness);
-
-			uint32_t prev_color = candles_color[i];
-			uint8_t prev_color_r = (uint8_t)(prev_color >> 16);
-			uint8_t prev_color_g = (uint8_t)(prev_color >> 8);
-			uint8_t prev_color_b = (uint8_t)prev_color;
-
-			uint32_t new_color = adjust_brightness(pixels->Color(CANDLE_COLOR_R, CANDLE_COLOR_G, CANDLE_COLOR_B), curent_brightness);
-			uint8_t new_color_r = (uint8_t)(new_color >> 16);
-			uint8_t new_color_g = (uint8_t)(new_color >> 8);
-			uint8_t new_color_b = (uint8_t)new_color;
-
-			uint8_t current_color_r = prev_color_r/2 + new_color_r/2;
-			uint8_t current_color_g = prev_color_g/2 + new_color_g/2;
-			uint8_t current_color_b = prev_color_b/2 + new_color_b/2;
-
-			candles_color[i] = pixels->Color(current_color_r, current_color_g, current_color_b);
-			for (int j = 0; j < CANDLE_PIXELS; j++)
-			{
-				pixels->setPixelColor((i*segmentSize) + j, candles_color[i]);
-			}
-		}
-		delay(50);
-	}
-private:
-    WS2812B* pixels;
+	uint8_t const SPEED_FACTOR = 5;  // [2..] bigger SPEED_FACTOR -> slower fire changing
 	uint8_t const CANDLE_PIXELS = 3;
 	uint8_t const CANDLE_SPACE = 4;
-	uint8_t  min_candle_brightness = 0;
-	uint8_t  max_candle_brightness = 100;
+	uint8_t const MIN_CANDLE_BRIGHTNESS = 0;
+	uint8_t const MAX_CANDLE_BRIGHTNESS = 100;
 
 	uint8_t const CANDLE_COLOR_R = 255;
 	uint8_t const CANDLE_COLOR_G = 40;
 	uint8_t const CANDLE_COLOR_B = 0;
+	
+    CandleJars(WS2812B* pixels)
+	{
+		this->pixels = pixels;
+		candles_number = NUMPIXELS/(CANDLE_PIXELS + CANDLE_SPACE);
+		segmentSize = CANDLE_PIXELS + CANDLE_SPACE;
+		fire_lifecycle_iteration = 0;
+		prev_brightness = new uint8_t [candles_number];
+		chage_brightness_for_step = new float [candles_number];
+	}
 
+    void run()
+	{
+		uint8_t current_brightness;
+		for (int i = 0; i < candles_number; i++)
+		{
+			if (fire_lifecycle_iteration == 0)
+			{
+				uint8_t target_brightness = random(MIN_CANDLE_BRIGHTNESS, MAX_CANDLE_BRIGHTNESS);
+				chage_brightness_for_step[i] = (target_brightness - prev_brightness[i]) / SPEED_FACTOR;
+			}
+
+			current_brightness = prev_brightness[i] + (chage_brightness_for_step[i] * fire_lifecycle_iteration);
+			uint32_t new_color = adjust_brightness(pixels->Color(CANDLE_COLOR_R, CANDLE_COLOR_G, CANDLE_COLOR_B), current_brightness);
+			for (int j = 0; j < CANDLE_PIXELS; j++)
+			{
+				pixels->setPixelColor((i*segmentSize) + j, new_color);
+			}
+			if (fire_lifecycle_iteration >= SPEED_FACTOR-1)
+			{
+				prev_brightness[i] = current_brightness;
+			}
+		}
+		fire_lifecycle_iteration++;
+		if (fire_lifecycle_iteration >= SPEED_FACTOR)
+		{
+			fire_lifecycle_iteration = 0;
+		}
+	}
+private:
+    WS2812B* pixels;
 	uint8_t candles_number;
-	uint32_t* candles_color;
+	uint8_t segmentSize;
+	uint8_t fire_lifecycle_iteration;
+	uint8_t* prev_brightness;
+	float* chage_brightness_for_step;
 
     uint32_t adjust_brightness(uint32_t c, uint8_t amt)
 	{
