@@ -1,4 +1,4 @@
-// r005.0
+// r006.0
 
 //FFT stuff------------------------------------------------------------------
 #define FFTLEN 1024
@@ -37,7 +37,8 @@ float high_freq_threshold = 3.5;
 // pattern = 3: Liquid
 // pattern = 4: Fireworks
 // pattern = 5: CandleJars
-uint8_t pattern = 3;
+// pattern = 6: Stars
+uint8_t pattern = 6;
 
 //For pattern_1
 float p1_coeff_fading_light = 30; //30*37 = 1100 ms
@@ -63,9 +64,15 @@ uint8_t p2_color_r_2 = 255;
 uint8_t p2_color_g_2 = 40;
 uint8_t p2_color_b_2 = 0;
 
+//For pattern 6
+int p2_vol_threshold_1 = 70;  //remove the noise
+float p2_coeff_smooth = 0.8;  // 0 to 1.0
+
 //Other stuff------------------------------------------------------------------
 float current[NUMPIXELS];
+float brightness[NUMPIXELS];
 uint8_t k[NUMPIXELS];
+uint8_t fadeK[NUMPIXELS];
 uint32_t strip[NUMPIXELS];
 
 const int8_t analogInPin = 1;
@@ -781,7 +788,7 @@ private:
 	}
 };
 
-Liquid* mode3 = new Liquid(&pixels, 0);
+Liquid* mode3 = new Liquid(&pixels, 2);
 Fireworks* mode4 = new Fireworks(&pixels);
 CandleJars* mode5 = new CandleJars(&pixels);
 
@@ -1036,6 +1043,40 @@ void pattern_5()
 	mode5->run();
 }
 
+void pattern_6(uint32_t *data)
+{
+	uint8_t scaledVolume[NUMPIXELS];
+	uint8_t randomPixel;
+
+	for (int i = 0; i < NUMPIXELS; i++)
+	{
+		if (data[i] < p2_vol_threshold_1)  // does the volume pass the threshold?
+		{
+			scaledVolume[i] = 0;  // if not set to zero
+		}
+		else
+		{
+			scaledVolume[i] = data[i];  //* (p1_vol_threshold_3 * (i / (float)NUMPIXELS) * (i / (float)NUMPIXELS) + p1_vol_threshold_2); // scale volume to compensate for heavy bass freq
+		}
+		if ((scaledVolume[i] > 50) && (i > NUMPIXELS * 0.1))  // if volume on high frequencies is high
+		{
+			randomPixel = random(NUMPIXELS);
+			fadeK[randomPixel] = (p1_coeff_fading_light * (256 - scaledVolume[i])) / 255;  // set initial fading koeffecient. The lower the value - the brighter the color
+		}
+		if (fadeK[i] <= p1_coeff_fading_light)
+		{ // coeff_smooth = 30
+			fadeK[i]++;
+			brightness[i] = 1.0 - sqrt(fadeK[i] / p1_coeff_fading_light);
+		}
+		uint32_t color = adjustBrightness(pixels.Color(255, 0, 0), brightness[i]);
+		strip[i] = color;
+	}
+	for (int i = 0; i < NUMPIXELS; i++)
+	{
+		pixels.setPixelColor(i, strip[i]); // display array [strip] on the physical strip
+	}
+}
+
 void setup()
 {
 	// power-up safety delay
@@ -1096,6 +1137,10 @@ void takeSamples()
 	else if (pattern == 5)
 	{
 		pattern_5();
+	}
+	else if (pattern == 6)
+	{
+		pattern_6(y);
 	}
 }
 
