@@ -1,4 +1,4 @@
-// r006.0
+// r006.1
 
 //FFT stuff------------------------------------------------------------------
 #define FFTLEN 1024
@@ -38,7 +38,7 @@ float high_freq_threshold = 3.5;
 // pattern = 4: Fireworks
 // pattern = 5: CandleJars
 // pattern = 6: Stars
-uint8_t pattern = 6;
+uint8_t pattern = 3;
 
 //For pattern_1
 float p1_coeff_fading_light = 30; //30*37 = 1100 ms
@@ -619,9 +619,9 @@ private:
 		if (wave_flooding_cycle > speed_factor)
 		{
 			wave_flooding_cycle = 0;
-			if (wave_peak_led >= NUMPIXELS)
+			if (wave_peak_led >= NUMPIXELS - wave_length/2)
 			{
-				wave_peak_led = 0;
+				wave_peak_led = (wave_length/2) + 1;
 			}
 			wave_peak_led++;
 
