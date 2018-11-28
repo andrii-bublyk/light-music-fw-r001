@@ -77,6 +77,15 @@ uint32_t strip[NUMPIXELS];
 
 const int8_t analogInPin = 1;
 
+//Buttons------------------------------------------------------------------
+const int8_t BTN_MODE_PIN = 2;
+const int8_t BTN_COLOR_PIN = 3;
+const int8_t BTN_POWER_PIN = 4;
+
+bool btnModePrevState = false;
+bool btnColorPrevState = false;
+bool btnPowerPrevState = false;
+
 class Fireworks
 {
 public:
@@ -1096,6 +1105,9 @@ void setup()
 	perform_fft(data32, y, FFTLEN);
 
 	randomSeed(42);
+	pinMode(BTN_MODE_PIN, INPUT);
+	pinMode(BTN_COLOR_PIN, INPUT);
+	pinMode(BTN_POWER_PIN, INPUT);
 }
 
 void takeSamples()
@@ -1148,7 +1160,56 @@ void loop()
 {
 	while (1)
 	{
+		butonsOperations();
+
 		takeSamples();
 		pixels.show();
 	}
+}
+
+void butonsOperations()
+{
+	// Serial.print("BTN_MODE_PIN state: ");
+	// Serial.println(digitalRead(BTN_MODE_PIN));
+	// Serial.print("BTN_COLOR_PIN state: ");
+	// Serial.println(digitalRead(BTN_COLOR_PIN));
+	// Serial.print("BTN_POWER_PIN state: ");
+	// Serial.println(digitalRead(BTN_POWER_PIN));
+	bool btnModeState =  digitalRead(BTN_MODE_PIN);
+	bool btnColorState =  digitalRead(BTN_COLOR_PIN);
+	bool btnPowerState =  digitalRead(BTN_POWER_PIN);
+	if (btnModeState != btnModePrevState)
+	{
+		if (btnModeState == HIGH)
+		{
+			Serial.println("changing pattern");
+			pattern++;
+			if (pattern >= 7)
+			{
+				pattern = 1;
+			}
+		}
+	}
+	btnModePrevState = btnModeState;
+
+	if (btnColorState != btnColorPrevState)
+	{
+		if (btnColorState == HIGH)
+		{
+			// do something usefull
+		}
+		
+	}
+	btnColorPrevState = btnColorState;
+
+	if (btnPowerState != btnPowerPrevState)
+	{
+		if (btnPowerState == HIGH)
+		{
+			// do something usefull
+		}
+		
+	}
+	btnPowerPrevState = btnPowerState;
+	
 }
