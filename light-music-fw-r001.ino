@@ -38,7 +38,7 @@ float high_freq_threshold = 3.5;
 // pattern = 4: Fireworks
 // pattern = 5: CandleJars
 // pattern = 6: Stars
-uint8_t pattern = 3;
+uint8_t pattern = 6;
 
 //For pattern_1
 float p1_coeff_fading_light = 30; //30*37 = 1100 ms
@@ -78,13 +78,18 @@ uint32_t strip[NUMPIXELS];
 const int8_t analogInPin = 1;
 
 //Buttons------------------------------------------------------------------
-const int8_t BTN_MODE_PIN = 2;
-const int8_t BTN_COLOR_PIN = 3;
-const int8_t BTN_POWER_PIN = 4;
+const int8_t BTN_MODE_PIN = 2;  // PA2
+const int8_t BTN_COLOR_PIN = 3;  // PA3
+const int8_t BTN_POWER_PIN = 4;  // PA4
 
 bool btnModePrevState = false;
 bool btnColorPrevState = false;
 bool btnPowerPrevState = false;
+
+//Sound aligning-----------------------------------------------------------
+const uint8_t MAX_VOLUME_FIND_ITERATION = 50;
+uint8_t maxValueForTheLastPeriod = 1;
+float volumeMultiplier = 1.0;
 
 class Fireworks
 {
@@ -1059,6 +1064,7 @@ void pattern_6(uint32_t *data)
 
 	for (int i = 0; i < NUMPIXELS; i++)
 	{
+		// Serial.println(data[i]);
 		if (data[i] < p2_vol_threshold_1)  // does the volume pass the threshold?
 		{
 			scaledVolume[i] = 0;  // if not set to zero
@@ -1128,6 +1134,8 @@ void takeSamples()
 	}
 	dma_disable(DMA1, DMA_CH1); //End of transfer, disable DMA and Continuous mode.
 	perform_fft(data32, y, FFTLEN);
+
+	harmonicsAmplitudeAdjustment(y);
 
 	// Serial.println(pattern);
 	if (pattern == 1)
@@ -1221,4 +1229,48 @@ void clearLedStrip()
 		pixels.setPixelColor(i, 0);
 	}
 	pixels.show();
+}
+
+void harmonicsAmplitudeAdjustment(uint32_t *data)
+{
+	static uint8_t counter = 0;
+
+	if (counter >= MAX_VOLUME_FIND_ITERATION)
+	{
+		if (maxValueForTheLastPeriod == 0)
+		{
+			maxValueForTheLastPeriod = 1;
+		}
+
+		volumeMultiplier = 255 / (float)maxValueForTheLastPeriod;
+		if (volumeMultiplier >= 10)
+		{
+			volumeMultiplier = 10.0;
+		}
+
+		counter = 0;
+		maxValueForTheLastPeriod = 0;
+		// Serial.print("volumeMultiplier: ");
+		// Serial.println(volumeMultiplier);
+	}
+
+	for (int i = 0; i < NUMPIXELS; i++)
+	{
+		if (data[i] > 255)
+		{
+			data[i] = 255;
+		}
+
+		if (data[i] > maxValueForTheLastPeriod)
+		{
+			maxValueForTheLastPeriod = data[i];
+		}
+
+		data[i] *= volumeMultiplier;
+		if (data[i] > 255)
+		{
+			data[i] = 255;
+		}
+	}
+	counter++;
 }
