@@ -1188,6 +1188,7 @@ void butonsOperations()
 			{
 				pattern = 1;
 			}
+			clearLedStrip();
 		}
 	}
 	btnModePrevState = btnModeState;
@@ -1211,5 +1212,13 @@ void butonsOperations()
 		
 	}
 	btnPowerPrevState = btnPowerState;
-	
+}
+
+void clearLedStrip()
+{
+	for (int i = 0; i < NUMPIXELS; i++)
+	{
+		pixels.setPixelColor(i, 0);
+	}
+	pixels.show();
 }
