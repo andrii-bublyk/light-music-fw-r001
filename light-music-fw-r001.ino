@@ -87,7 +87,19 @@ bool btnColorPrevState = false;
 bool btnPowerPrevState = false;
 
 bool workEnable = true;
+const int8_t LIQUID_COLORS_NUMBER = 3;
+int8_t colorIndex = 0;
+const int8_t LIQUID_WAVE_COLORS_SCHEMA[LIQUID_COLORS_NUMBER][4] = {
+																  	{ 200, 56, 0, 50 },
+																	{ 100, 100, 0, 80 },
+																	{ 0, 200, 50, 60 }
+																  };
 
+const int8_t LIQUID_STATIC_COLORS_SCHEMA[LIQUID_COLORS_NUMBER][4] = {
+																		{ 25, 100, 100, 10 },
+																		{ 40, 100, 0, 20 },
+																		{ 0, 0, 200, 10 }
+																	};
 //Sound aligning-----------------------------------------------------------
 const uint8_t MAX_VOLUME_FIND_ITERATION = 50;
 uint8_t maxValueForTheLastPeriod = 1;
@@ -728,7 +740,6 @@ private:
 	}
 };
 
-
 class CandleJars
 {
 public:
@@ -1210,9 +1221,27 @@ void butonsOperations()
 	{
 		if (btnColorState == HIGH)
 		{
-			// do something usefull
+			Serial.println("changing color");
+			colorIndex++;
+			if (pattern == 3)
+			{
+				if (colorIndex >= LIQUID_COLORS_NUMBER)
+				{
+					colorIndex = 0;
+				}
+
+				mode3->peak_color_r = LIQUID_WAVE_COLORS_SCHEMA[colorIndex][0];
+				mode3->peak_color_g = LIQUID_WAVE_COLORS_SCHEMA[colorIndex][1];
+				mode3->peak_color_b = LIQUID_WAVE_COLORS_SCHEMA[colorIndex][2];
+				mode3->wave_peak_brightness = LIQUID_WAVE_COLORS_SCHEMA[colorIndex][3];
+
+				mode3->static_color_r = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][0];
+				mode3->static_color_g = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][1];
+				mode3->static_color_b = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][2];
+				mode3->wave_static_brightness = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][3];
+			}
+			clearLedStrip();
 		}
-		
 	}
 	btnColorPrevState = btnColorState;
 
