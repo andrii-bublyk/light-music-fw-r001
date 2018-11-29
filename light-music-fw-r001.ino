@@ -86,6 +86,8 @@ bool btnModePrevState = false;
 bool btnColorPrevState = false;
 bool btnPowerPrevState = false;
 
+bool workEnable = true;
+
 //Sound aligning-----------------------------------------------------------
 const uint8_t MAX_VOLUME_FIND_ITERATION = 50;
 uint8_t maxValueForTheLastPeriod = 1;
@@ -1135,8 +1137,11 @@ void takeSamples()
 	dma_disable(DMA1, DMA_CH1); //End of transfer, disable DMA and Continuous mode.
 	perform_fft(data32, y, FFTLEN);
 
+	if (workEnable == false)
+	{
+		return;
+	}
 	harmonicsAmplitudeAdjustment(y);
-
 	// Serial.println(pattern);
 	if (pattern == 1)
 	{
@@ -1215,9 +1220,9 @@ void butonsOperations()
 	{
 		if (btnPowerState == HIGH)
 		{
-			// do something usefull
+			workEnable = !workEnable;
+			clearLedStrip();
 		}
-		
 	}
 	btnPowerPrevState = btnPowerState;
 }
