@@ -1,4 +1,4 @@
-// r006.1
+// r007.0
 
 //FFT stuff------------------------------------------------------------------
 #define FFTLEN 1024
@@ -26,8 +26,6 @@ volatile static bool dma1_ch1_Active;
 // #include "modes/Fireworks.h"
 
 //Configurable_parameters------------------------------------------------------
-int bins = 10; //max = 240
-
 uint32_t vol_threshold = 55; //remove the noise
 float low_freq_threshold = 0.15;
 float high_freq_threshold = 3.5;
@@ -47,11 +45,11 @@ float p2_coeff_smooth = 0.8;  // 0 to 1.0
 uint8_t p1_coeff_fading_light = 30;  // 30*37 = 1100ms
 float p1_coeff_smooth = 20;
 //Other stuff------------------------------------------------------------------
-// float current[NUMPIXELS];
 float brightness[NUMPIXELS];
 // uint8_t k[NUMPIXELS];
 uint8_t fadeK[NUMPIXELS];
 uint32_t strip[NUMPIXELS];
+uint32_t stripLayer2[NUMPIXELS];
 
 const int8_t analogInPin = 1;
 
@@ -76,10 +74,6 @@ const int8_t LIQUID_STATIC_COLORS_SCHEMA[EMBEDDED_COLORS_NUMBER][4] = {
 	{25, 100, 100, 10},
 	{40, 100, 0, 20},
 	{0, 0, 200, 10}};
-//Sound aligning-----------------------------------------------------------
-const uint8_t MAX_VOLUME_FIND_ITERATION = 50;
-uint8_t maxValueForTheLastPeriod = 1;
-float volumeMultiplier = 1.0;
 
 class Fireworks
 {
@@ -962,9 +956,110 @@ void pattern_1(uint32_t *data)
 	}
 }
 
-void pattern_2(uint32_t *harmonic_amplitudes)
+// Rolling window and BEAT detection stuff===================================
+#define NUM_FRAMES 90		 // number of frames in rolling window
+uint16_t window[NUM_FRAMES]; // window of current volumes
+uint16_t window2[NUM_FRAMES];
+int windowMaxVol; // dynamic Max Volume for the selected bin
+int windowMaxVol2;
+float beatSensitivity = 0.7; // what is considered BEAT? 70% of windowMaxVol
+//const int selectedBin   =    2;    // select a bin to monitor
+//const int selectedBin2   =  30;    // select a bin to monitor
+int currentFrame = 0; // initial value for frame counter
+int currentFrame2 = 0;
+
+void refreshWindowMaxVolume()
+{ // find max value in window array
+	windowMaxVol = 0;
+	for (int frame = 0; frame < NUM_FRAMES; frame++)
+	{
+		if (window[frame] > windowMaxVol)
+		{
+			windowMaxVol = window[frame];
+		}
+	}
+}
+
+void refreshWindowMaxVolume2()
+{ // find max value in window array
+	windowMaxVol2 = 0;
+	for (int frame = 0; frame < NUM_FRAMES; frame++)
+	{
+		if (window2[frame] > windowMaxVol2)
+		{
+			windowMaxVol2 = window2[frame];
+		}
+	}
+}
+
+void pattern_2(uint32_t *data)
 {
-	// here will be "power mode"
+	int lowPower = 0;  // high freq
+	int highPower = 0; // low freq
+	for (int i = 0; i < NUMPIXELS; i++)
+	{
+		if (i < NUMPIXELS / 10)
+			lowPower += data[i]; // the power of the sound = sum of all bins in lower 10% spectrum
+		else if (i > NUMPIXELS * 0.6)
+			highPower += data[i]; // the power of the sound = sum of all bins in higher 60% of spectrum
+	}
+	int randomPixel = random(NUMPIXELS);
+	window[currentFrame] = lowPower; // fill each farme with current data from selected bin
+	window2[currentFrame] = highPower;
+	currentFrame++;
+	if (currentFrame >= NUM_FRAMES)
+	{
+		refreshWindowMaxVolume(); // call global function to set new Max Vol value
+		refreshWindowMaxVolume2();
+		currentFrame = 0; // reset frame counter back to zero
+	}
+	if (lowPower < 1000)
+	{ // noise threshold. If volume is too low consider it zero
+		lowPower = 0;
+	}
+	if (lowPower > (windowMaxVol * beatSensitivity))
+	{ // Main beat trigger. Is threshold passed? if so, then we have a BEAT
+		strip[NUMPIXELS / 2 - 1] = pixels.Color(100, 50, 0);
+		strip[NUMPIXELS / 2] = pixels.Color(100, 50, 0);
+	}
+	else
+	{
+		strip[NUMPIXELS / 2 - 1] = 0;
+		strip[NUMPIXELS / 2] = 0;
+	}
+	for (int i = 1; i < NUMPIXELS / 2; i++)
+	{ // scroll the film, one step at a time
+		strip[i - 1] = strip[i];
+		strip[NUMPIXELS - i] = strip[i];
+	}
+	for (int i = 2; i < NUMPIXELS / 2; i++)
+	{
+		if (strip[i] < pixels.Color(0, 50, 0))
+		{
+			strip[i] = adjustBrightness(strip[i - 1], 0.5); // tail length, the lower the value the shorter the tail
+		}
+	}
+	for (int i = 0; i < NUMPIXELS; i++)
+	{ //copy array
+		stripLayer2[i] = strip[i];
+	}
+
+	if (highPower < 300)
+	{ // noise threshold. If volume is too low consider it zero
+		highPower = 0;
+	}
+	if (highPower > (windowMaxVol2 * beatSensitivity)) // Main beat trigger. Is threshold passed? if so, then we have a BEAT
+	{
+		stripLayer2[randomPixel] = pixels.Color(100, 0, 100);
+	}
+	for (int i = 0; i < NUMPIXELS; i++)
+	{ // multiply numPix to numRepeats
+		for (int j = 0; j < NUM_REPEAT; j++)
+		{
+			//pixels.setPixelColor(j * NUMPIXELS + i, strip[i]);
+			pixels.setPixelColor(j * NUMPIXELS + i, stripLayer2[i]);
+		}
+	}
 }
 
 void pattern_3()
