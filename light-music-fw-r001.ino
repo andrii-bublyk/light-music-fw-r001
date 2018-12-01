@@ -744,6 +744,10 @@ class CandleJars
 			if (fire_lifecycle_iteration == 0)
 			{
 				uint8_t target_brightness = random(MIN_CANDLE_BRIGHTNESS, MAX_CANDLE_BRIGHTNESS);
+				if (target_brightness < MAX_CANDLE_BRIGHTNESS/3)
+				{
+					target_brightness = 0;
+				}
 				chage_brightness_for_step[i] = (target_brightness - prev_brightness[i]) / SPEED_FACTOR;
 			}
 
