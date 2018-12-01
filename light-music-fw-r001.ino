@@ -65,15 +65,25 @@ bool btnPowerPrevState = false;
 bool workEnable = true;
 const int8_t EMBEDDED_COLORS_NUMBER = 3;
 int8_t colorIndex = 0;
-const int8_t LIQUID_WAVE_COLORS_SCHEMA[EMBEDDED_COLORS_NUMBER][4] = {
-	{200, 56, 0, 50},
-	{100, 100, 0, 80},
-	{0, 200, 50, 60}};
+const int8_t SAVED_COLORS_SCHEMA[EMBEDDED_COLORS_NUMBER][4] = {
+	{200, 50, 0, 80},
+	{50, 200, 50, 80},
+	{0, 50, 200, 80}};
 
 const int8_t LIQUID_STATIC_COLORS_SCHEMA[EMBEDDED_COLORS_NUMBER][4] = {
 	{25, 100, 100, 10},
-	{40, 100, 0, 20},
-	{0, 0, 200, 10}};
+	{100, 25, 25, 10},
+	{25, 0, 100, 10}};
+
+uint8_t current_color_r1 = 0;
+uint8_t current_color_g1 = 0;
+uint8_t current_color_b1 = 0;
+uint8_t current_color_br1 = 0;
+
+uint8_t current_color_r2 = 0;
+uint8_t current_color_g2 = 0;
+uint8_t current_color_b2 = 0;
+uint8_t current_color_br2 = 0;
 
 class Fireworks
 {
@@ -353,6 +363,8 @@ class Liquid
 	uint8_t static_color_b = 100;
 	uint8_t wave_static_brightness = 10; // in percent
 
+	uint8_t speed_factor;			// [1..20]
+
 	Liquid(WS2812B *pixels, uint8_t mode)
 	{
 		this->pixels = pixels;
@@ -394,7 +406,6 @@ class Liquid
 	uint8_t mode;					// [0..2]
 	uint8_t noize_coefficient;		// [0...100]
 	uint8_t prev_noize_coefficient; // [0...100]
-	uint8_t speed_factor;			// [1..20]
 
 	uint8_t wave_peak_led;
 	uint8_t wave_first_led;
@@ -951,7 +962,7 @@ void pattern_1(uint32_t *data)
 			fadeK[i]++;
 			brightness[i] = 1.0 - sqrt(fadeK[i] / p1_coeff_smooth);
 		}
-		uint32_t color = adjustBrightness(pixels.Color(255, 0, 0), brightness[i]);
+		uint32_t color = adjustBrightness(pixels.Color(current_color_r1, current_color_g1, current_color_b1), brightness[i]);
 		strip[i] = color;
 	}
 	for (int i = 0; i < NUMPIXELS; i++)
@@ -1023,8 +1034,8 @@ void pattern_2(uint32_t *data)
 	}
 	if (lowPower > (windowMaxVol * beatSensitivity))
 	{ // Main beat trigger. Is threshold passed? if so, then we have a BEAT
-		strip[NUMPIXELS / 2 - 1] = pixels.Color(100, 50, 0);
-		strip[NUMPIXELS / 2] = pixels.Color(100, 50, 0);
+		strip[NUMPIXELS / 2 - 1] = pixels.Color(100, 50, 0);  // (100, 50, 0)
+		strip[NUMPIXELS / 2] = pixels.Color(100, 50, 0);  // (100, 50, 0)
 	}
 	else
 	{
@@ -1078,16 +1089,32 @@ void pattern_4(uint32_t *harmonic_amplitudes)
 
 void pattern_5(uint32_t *harmonic_amplitudes)
 {
+	liquid_mode->peak_color_r = current_color_r1;
+	liquid_mode->peak_color_g = current_color_g1;
+	liquid_mode->peak_color_b = current_color_b1;
+	liquid_mode->wave_peak_brightness = current_color_br1;
+
 	liquid_mode->run(harmonic_amplitudes, 0);
 }
 
 void pattern_6(uint32_t *harmonic_amplitudes)
 {
+	liquid_mode->peak_color_r = current_color_r1;
+	liquid_mode->peak_color_g = current_color_g1;
+	liquid_mode->peak_color_b = current_color_b1;
+	// liquid_mode->wave_peak_brightness = current_color_br1;
+	liquid_mode->speed_factor = 2;
+
 	liquid_mode->run(harmonic_amplitudes, 1);
 }
 
 void pattern_7(uint32_t *harmonic_amplitudes)
 {
+	liquid_mode->static_color_r = current_color_r2;
+	liquid_mode->static_color_g = current_color_g2;
+	liquid_mode->static_color_b = current_color_b2;
+	// liquid_mode->wave_static_brightness = current_color_br2;
+	liquid_mode->speed_factor = 2;
 	liquid_mode->run(harmonic_amplitudes, 2);
 }
 
@@ -1113,6 +1140,9 @@ void setup()
 	pinMode(BTN_MODE_PIN, INPUT);
 	pinMode(BTN_COLOR_PIN, INPUT);
 	pinMode(BTN_POWER_PIN, INPUT);
+
+	// load mode from eeprom
+	// load color from eeprom
 }
 
 void takeSamples()
@@ -1198,11 +1228,24 @@ void butonsOperations()
 		if (btnModeState == HIGH)
 		{
 			Serial.println("changing pattern");
+			colorIndex = 0;
+			current_color_r1 = SAVED_COLORS_SCHEMA[colorIndex][0];
+			current_color_g1 = SAVED_COLORS_SCHEMA[colorIndex][1];
+			current_color_b1 = SAVED_COLORS_SCHEMA[colorIndex][2];
+			current_color_br1 = SAVED_COLORS_SCHEMA[colorIndex][3];
+
+			current_color_r2 = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][0];
+			current_color_g2 = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][1];
+			current_color_b2 = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][2];
+			current_color_br2 = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][3];
+
 			pattern++;
 			if (pattern >= 8)
 			{
 				pattern = 1;
 			}
+
+			// save pattern to eeprom
 			clearLedStrip();
 		}
 	}
@@ -1214,23 +1257,27 @@ void butonsOperations()
 		{
 			Serial.println("changing color");
 			colorIndex++;
-			if (pattern == 3)
-			{
-				if (colorIndex >= EMBEDDED_COLORS_NUMBER)
+			if (colorIndex >= EMBEDDED_COLORS_NUMBER)
 				{
 					colorIndex = 0;
 				}
 
-				liquid_mode->peak_color_r = LIQUID_WAVE_COLORS_SCHEMA[colorIndex][0];
-				liquid_mode->peak_color_g = LIQUID_WAVE_COLORS_SCHEMA[colorIndex][1];
-				liquid_mode->peak_color_b = LIQUID_WAVE_COLORS_SCHEMA[colorIndex][2];
-				liquid_mode->wave_peak_brightness = LIQUID_WAVE_COLORS_SCHEMA[colorIndex][3];
-
-				liquid_mode->static_color_r = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][0];
-				liquid_mode->static_color_g = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][1];
-				liquid_mode->static_color_b = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][2];
-				liquid_mode->wave_static_brightness = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][3];
+			if (pattern == 1 || pattern == 5 || pattern == 6)
+			{
+				current_color_r1 = SAVED_COLORS_SCHEMA[colorIndex][0];
+				current_color_g1 = SAVED_COLORS_SCHEMA[colorIndex][1];
+				current_color_b1 = SAVED_COLORS_SCHEMA[colorIndex][2];
+				current_color_br1 = SAVED_COLORS_SCHEMA[colorIndex][3];
 			}
+			if (pattern == 7)
+			{
+				current_color_r2 = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][0];
+				current_color_g2 = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][1];
+				current_color_b2 = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][2];
+				current_color_br2 = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][3];
+			}
+
+			// save colors to eeprom
 			clearLedStrip();
 		}
 	}
