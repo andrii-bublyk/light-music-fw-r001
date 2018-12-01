@@ -78,9 +78,9 @@ uint32_t strip[NUMPIXELS];
 const int8_t analogInPin = 1;
 
 //Buttons------------------------------------------------------------------
-const int8_t BTN_MODE_PIN = 2;  // PA2
-const int8_t BTN_COLOR_PIN = 3;  // PA3
-const int8_t BTN_POWER_PIN = 4;  // PA4
+const int8_t BTN_MODE_PIN = 15;  // PA15
+const int8_t BTN_COLOR_PIN = 24;  // PB8
+const int8_t BTN_POWER_PIN = 30;  // PB14
 
 bool btnModePrevState = false;
 bool btnColorPrevState = false;
