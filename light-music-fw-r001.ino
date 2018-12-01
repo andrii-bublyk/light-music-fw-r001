@@ -1,5 +1,6 @@
 // r007.0
 
+#include <EEPROM.h>
 //FFT stuff------------------------------------------------------------------
 #define FFTLEN 1024
 #include "cr4_fft_1024_stm32.h"
@@ -84,6 +85,17 @@ uint8_t current_color_r2 = 0;
 uint8_t current_color_g2 = 0;
 uint8_t current_color_b2 = 0;
 uint8_t current_color_br2 = 0;
+
+const uint8_t MODE_ADDR = 0;
+const uint8_t COLOR_INDEX_ADDR = 1;
+const uint8_t R1_ADDR = 2;
+const uint8_t G1_ADDR = 3;
+const uint8_t B1_ADDR = 4;
+const uint8_t BR1_ADDR = 5;
+const uint8_t R2_ADDR = 6;
+const uint8_t G2_ADDR = 7;
+const uint8_t B2_ADDR = 8;
+const uint8_t BR2_ADDR = 9;
 
 class Fireworks
 {
@@ -1141,8 +1153,8 @@ void setup()
 	pinMode(BTN_COLOR_PIN, INPUT);
 	pinMode(BTN_POWER_PIN, INPUT);
 
-	// load mode from eeprom
-	// load color from eeprom
+	readModeStateFromEEPROM();
+	readColorsStateFromEEPROM();
 }
 
 void takeSamples()
@@ -1245,7 +1257,8 @@ void butonsOperations()
 				pattern = 1;
 			}
 
-			// save pattern to eeprom
+			saveColorsStateToEEPROM();
+			saveModeStateToEEPROM();
 			clearLedStrip();
 		}
 	}
@@ -1277,7 +1290,7 @@ void butonsOperations()
 				current_color_br2 = LIQUID_STATIC_COLORS_SCHEMA[colorIndex][3];
 			}
 
-			// save colors to eeprom
+			saveColorsStateToEEPROM();
 			clearLedStrip();
 		}
 	}
@@ -1292,6 +1305,44 @@ void butonsOperations()
 		}
 	}
 	btnPowerPrevState = btnPowerState;
+}
+
+void saveColorsStateToEEPROM()
+{
+	EEPROM.write(COLOR_INDEX_ADDR, colorIndex);
+	EEPROM.write(R1_ADDR, current_color_r1);
+	EEPROM.write(G1_ADDR, current_color_g1);
+	EEPROM.write(B1_ADDR, current_color_b1);
+	EEPROM.write(BR1_ADDR, current_color_br1);
+
+	EEPROM.write(R2_ADDR, current_color_r2);
+	EEPROM.write(G2_ADDR, current_color_g2);
+	EEPROM.write(B2_ADDR, current_color_b2);
+	EEPROM.write(BR2_ADDR, current_color_br2);
+}
+
+void readColorsStateFromEEPROM()
+{
+	colorIndex = EEPROM.read(COLOR_INDEX_ADDR);
+	current_color_r1 = EEPROM.read(R1_ADDR);
+	current_color_g1 = EEPROM.read(G1_ADDR);
+	current_color_b1 = EEPROM.read(B1_ADDR);
+	current_color_br1 = EEPROM.read(BR1_ADDR);
+
+	current_color_r2 = EEPROM.read(R2_ADDR);
+	current_color_g2 = EEPROM.read(G2_ADDR);
+	current_color_b2 = EEPROM.read(B2_ADDR);
+	current_color_br2 = EEPROM.read(BR2_ADDR);
+}
+
+void saveModeStateToEEPROM()
+{
+	EEPROM.write(MODE_ADDR, pattern);
+}
+
+void readModeStateFromEEPROM()
+{
+	pattern = EEPROM.read(MODE_ADDR);
 }
 
 void clearLedStrip()
