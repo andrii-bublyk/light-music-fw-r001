@@ -97,6 +97,10 @@ const uint8_t G2_ADDR = 7;
 const uint8_t B2_ADDR = 8;
 const uint8_t BR2_ADDR = 9;
 
+uint8_t button_pressed_counter = 0;
+bool set_color_from_wheel = false;
+uint8_t wheel_color_index = 0;
+
 class Fireworks
 {
   public:
@@ -1266,7 +1270,7 @@ void butonsOperations()
 
 	if (btnColorState != btnColorPrevState)
 	{
-		if (btnColorState == HIGH)
+		if (btnColorState == LOW && set_color_from_wheel == false)
 		{
 			Serial.println("changing color");
 			colorIndex++;
@@ -1294,6 +1298,48 @@ void butonsOperations()
 			clearLedStrip();
 		}
 	}
+	else
+	{
+		if (btnColorState == HIGH)
+		{
+			if (button_pressed_counter >= 100)
+			{
+				Serial.print("button_pressed_counter counter: ");
+				Serial.println(button_pressed_counter);
+
+				uint32_t wheel_color = Wheel(wheel_color_index);
+
+				if (pattern == 7)
+				{
+					current_color_r2 = (uint8_t)(wheel_color >> 16);
+					current_color_g2 = (uint8_t)(wheel_color >> 8);
+					current_color_b2 = (uint8_t)wheel_color;
+				}
+				else
+				{
+					current_color_r1 = (uint8_t)(wheel_color >> 16);
+					current_color_g1 = (uint8_t)(wheel_color >> 8);
+					current_color_b1 = (uint8_t)wheel_color;
+				}
+				
+				wheel_color_index++;
+				if (wheel_color_index == 255)
+				{
+					wheel_color_index = 0;
+				}
+				set_color_from_wheel = true;
+			}
+			else
+			{
+				button_pressed_counter++;
+			}
+		}
+		else
+		{
+			button_pressed_counter = 0;
+			set_color_from_wheel = false;
+		}
+	}
 	btnColorPrevState = btnColorState;
 
 	if (btnPowerState != btnPowerPrevState)
@@ -1305,6 +1351,29 @@ void butonsOperations()
 		}
 	}
 	btnPowerPrevState = btnPowerState;
+}
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(byte WheelPos)
+{
+	if (WheelPos < 85)
+	{
+		return pixels.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+	}
+	else
+	{
+		if (WheelPos < 170)
+		{
+			WheelPos -= 85;
+			return pixels.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+		}
+		else
+		{
+			WheelPos -= 170;
+			return pixels.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+		}
+	}
 }
 
 void saveColorsStateToEEPROM()
