@@ -1,9 +1,10 @@
-// r007.0
+// r007.1
 
 #include <EEPROM.h>
 //FFT stuff------------------------------------------------------------------
-#define FFTLEN 1024
-#include "cr4_fft_1024_stm32.h"
+#define FFTLEN 256  // 1024
+// #include "cr4_fft_1024_stm32.h"
+#include "cr4_fft_256_stm32.h"
 #include <SPI.h>
 uint16_t data16[FFTLEN];
 uint32_t data32[FFTLEN];
@@ -11,7 +12,7 @@ uint32_t y[FFTLEN];
 //LED stuff-----------------------------------------------------------------
 #include <WS2812B.h> //#include <NeoMaple.h>
 
-#define NUMPIXELS 90 // number leds of the LED strip
+#define NUMPIXELS 210 // number leds of the LED strip
 #define NUM_REPEAT 1 // number of repeated times
 
 WS2812B pixels = WS2812B(NUMPIXELS * NUM_REPEAT);
@@ -27,9 +28,9 @@ volatile static bool dma1_ch1_Active;
 // #include "modes/Fireworks.h"
 
 //Configurable_parameters------------------------------------------------------
-uint32_t vol_threshold = 55; //remove the noise
-float low_freq_threshold = 0.15;
-float high_freq_threshold = 3.5;
+// uint32_t vol_threshold = 55; //remove the noise
+// float low_freq_threshold = 0.15;
+// float high_freq_threshold = 3.5;
 
 // pattern = 1: stars
 // pattern = 2: power
@@ -42,11 +43,11 @@ uint8_t pattern = 1;
 
 //For pattern 1
 int p2_vol_threshold_1 = 70;  //remove the noise
-float p2_coeff_smooth = 0.8;  // 0 to 1.0
-uint8_t p1_coeff_fading_light = 30;  // 30*37 = 1100ms
+// float p2_coeff_smooth = 0.8;  // 0 to 1.0
+// uint8_t p1_coeff_fading_light = 30;  // 30*37 = 1100ms
 float p1_coeff_smooth = 20;
 //Other stuff------------------------------------------------------------------
-float brightness[NUMPIXELS];
+uint8_t brightness[NUMPIXELS];
 // uint8_t k[NUMPIXELS];
 uint8_t fadeK[NUMPIXELS];
 uint32_t strip[NUMPIXELS];
@@ -893,20 +894,20 @@ void adc_dma_enable(const adc_dev *dev)
 	bb_peri_set_bit(&dev->regs->CR2, ADC_CR2_DMA_BIT, 1);
 }
 
-uint16 timer_set_period(HardwareTimer timer, uint32 microseconds)
-{
-	if (!microseconds)
-	{
-		timer.setPrescaleFactor(1);
-		timer.setOverflow(1);
-		return timer.getOverflow();
-	}
-	uint32 cycles = microseconds * (72000000 / 1000000); // 72 cycles per microsecond
-	uint16 ps = (uint16)((cycles >> 16) + 1);
-	timer.setPrescaleFactor(ps);
-	timer.setOverflow((cycles / ps) - 1);
-	return timer.getOverflow();
-}
+// uint16 timer_set_period(HardwareTimer timer, uint32 microseconds)
+// {
+// 	if (!microseconds)
+// 	{
+// 		timer.setPrescaleFactor(1);
+// 		timer.setOverflow(1);
+// 		return timer.getOverflow();
+// 	}
+// 	uint32 cycles = microseconds * (72000000 / 1000000); // 72 cycles per microsecond
+// 	uint16 ps = (uint16)((cycles >> 16) + 1);
+// 	timer.setPrescaleFactor(ps);
+// 	timer.setOverflow((cycles / ps) - 1);
+// 	return timer.getOverflow();
+// }
 
 void inplace_magnitude(uint32_t * target, uint16_t len)
 {
@@ -933,7 +934,8 @@ void inplace_magnitude(uint32_t * target, uint16_t len)
 
 void perform_fft(uint32_t *indata, uint32_t *outdata, const int len)
 {
-	cr4_fft_1024_stm32(outdata, indata, len);
+	// cr4_fft_1024_stm32(outdata, indata, len);
+	cr4_fft_256_stm32(outdata, indata, len);
 	outdata[0] = 0;
 	inplace_magnitude(outdata, len);
 }
@@ -959,6 +961,7 @@ void pattern_1(uint32_t *data)
 	uint8_t randomPixel;
 	for (int i = 0; i < NUMPIXELS; i++)
 	{
+		Serial.println(data[i]);
 		if (data[i] < p2_vol_threshold_1)
 		{						 // does the volume pass the threshold?
 			scaledVolume[i] = 0; // if not set  to zero
@@ -976,9 +979,9 @@ void pattern_1(uint32_t *data)
 		if (fadeK[i] <= p1_coeff_smooth)
 		{ // coeff_smooth = 30
 			fadeK[i]++;
-			brightness[i] = 1.0 - sqrt(fadeK[i] / p1_coeff_smooth);
+			brightness[i] = (1.0 - sqrt(fadeK[i] / p1_coeff_smooth)) * 100;
 		}
-		uint32_t color = adjustBrightness(pixels.Color(current_color_r1, current_color_g1, current_color_b1), brightness[i]);
+		uint32_t color = adjustBrightness(pixels.Color(current_color_r1, current_color_g1, current_color_b1), (float)brightness[i] / 100);
 		strip[i] = color;
 	}
 	for (int i = 0; i < NUMPIXELS; i++)
