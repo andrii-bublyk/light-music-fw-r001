@@ -1,4 +1,4 @@
-// r007.1
+// r007.2
 
 #include <EEPROM.h>
 //FFT stuff------------------------------------------------------------------
@@ -113,14 +113,14 @@ class Fireworks
 	uint8_t const FIRE_COLOR_R = 200;
 	uint8_t const FIRE_COLOR_G = 0;
 	uint8_t const FIRE_COLOR_B = 0;
-	uint8_t const FIRE_ATTENUATION_ITERATIONS_NUMBER = 30;
+	uint8_t const FIRE_ATTENUATION_ITERATIONS_NUMBER = 50;
 
 	uint8_t const STAR_COLOR_R = 200;
 	uint8_t const STAR_COLOR_G = 200;
 	uint8_t const STAR_COLOR_B = 200;
 	uint8_t const STAR_COLOR_BRIGHTNESS = 100;
 	uint8_t const STAR_COUNT = 7;
-	uint8_t const STAR_LIGHTING_ITERATIONS_COUNT = 20;
+	uint8_t const STAR_LIGHTING_ITERATIONS_COUNT = 40;
 
 	uint8_t const NOIZE_THRESHOLD = 50;			 // [0..100]
 	uint8_t const LAST_FOURIER_VALID_INDEX = 24; // [0..120]
@@ -201,6 +201,7 @@ class Fireworks
 				fire_iteration = 0;
 				state_finished = true;
 			}
+			delay(30);
 		}
 		if (current_state == 2)
 		{
@@ -243,7 +244,7 @@ class Fireworks
 				color[i] = pixels->Color((uint8_t)current_color_r, (uint8_t)current_color_g, (uint8_t)current_color_b);
 				pixels->setPixelColor(i, color[i]);
 			}
-			if (fire_attenuation_counter >= FIRE_ATTENUATION_ITERATIONS_NUMBER / 2)
+			if (fire_attenuation_counter >= FIRE_ATTENUATION_ITERATIONS_NUMBER / 4)
 			{
 				fire_attenuation_counter = 0;
 				state_finished = true;
@@ -467,7 +468,7 @@ class Liquid
 		{
 			temp /= 2.55;
 			temp /= speed_factor + 1;
-			// temp *= 10;
+			temp *= 5;
 			if (temp > 100.0)
 			{
 				temp = 100.0;
@@ -591,7 +592,7 @@ class Liquid
 		{
 			//changing static color brightness (bigger noize -> brighter static color)
 			int new_wave_static_brightness = prev_noize_coefficient + noize_change / 2;
-			if (noize_change < -1)
+			if (new_wave_static_brightness < wave_static_brightness)
 			{
 				new_wave_static_brightness = wave_static_brightness - 1;
 			}
@@ -744,7 +745,7 @@ class Liquid
 class CandleJars
 {
   public:
-	uint8_t const SPEED_FACTOR = 5; // [2..] bigger SPEED_FACTOR -> slower fire changing
+	uint8_t const SPEED_FACTOR = 20; // [2..] bigger SPEED_FACTOR -> slower fire changing
 	uint8_t const CANDLE_PIXELS = 3;
 	uint8_t const CANDLE_SPACE = 4;
 	uint8_t const MIN_CANDLE_BRIGHTNESS = 0;
@@ -1122,13 +1123,14 @@ void pattern_6(uint32_t *harmonic_amplitudes)
 	liquid_mode->peak_color_g = current_color_g1;
 	liquid_mode->peak_color_b = current_color_b1;
 	// liquid_mode->wave_peak_brightness = current_color_br1;
-	liquid_mode->speed_factor = 2;
+	liquid_mode->speed_factor = 5;
 
 	liquid_mode->run(harmonic_amplitudes, 1);
 }
 
 void pattern_7(uint32_t *harmonic_amplitudes)
 {
+	liquid_mode->wave_peak_brightness = 80;
 	liquid_mode->static_color_r = current_color_r2;
 	liquid_mode->static_color_g = current_color_g2;
 	liquid_mode->static_color_b = current_color_b2;
