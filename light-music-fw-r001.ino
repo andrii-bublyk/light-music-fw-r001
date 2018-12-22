@@ -370,7 +370,7 @@ class Fireworks
 class Liquid
 {
   public:
-	uint8_t const wave_length = 17;
+	uint8_t wave_length = 60;
 	uint8_t peak_color_r = 200;
 	uint8_t peak_color_g = 56;
 	uint8_t peak_color_b = 0;
@@ -714,6 +714,10 @@ class Liquid
 
 	void calculate_wave_borders()
 	{
+		if (wave_length % 2 == 0)
+		{
+			wave_length++;
+		}
 		this->wave_first_led = wave_peak_led - (wave_length / 2);
 		if (this->wave_first_led >= NUMPIXELS)
 		{
@@ -751,9 +755,9 @@ class CandleJars
 	uint8_t const MIN_CANDLE_BRIGHTNESS = 0;
 	uint8_t const MAX_CANDLE_BRIGHTNESS = 100;
 
-	uint8_t const CANDLE_COLOR_R = 255;
-	uint8_t const CANDLE_COLOR_G = 40;
-	uint8_t const CANDLE_COLOR_B = 0;
+	// uint8_t const CANDLE_COLOR_R = 255;
+	// uint8_t const CANDLE_COLOR_G = 40;
+	// uint8_t const CANDLE_COLOR_B = 0;
 
 	CandleJars(WS2812B *pixels)
 	{
@@ -781,7 +785,7 @@ class CandleJars
 			}
 
 			current_brightness = prev_brightness[i] + (chage_brightness_for_step[i] * fire_lifecycle_iteration);
-			uint32_t new_color = adjust_brightness(pixels->Color(CANDLE_COLOR_R, CANDLE_COLOR_G, CANDLE_COLOR_B), current_brightness);
+			uint32_t new_color = adjust_brightness(pixels->Color(current_color_r1, current_color_g1, current_color_b1), current_brightness);
 			for (int j = 0; j < CANDLE_PIXELS; j++)
 			{
 				pixels->setPixelColor((i * segmentSize) + j, new_color);
@@ -1284,7 +1288,7 @@ void butonsOperations()
 					colorIndex = 0;
 				}
 
-			if (pattern == 1 || pattern == 5 || pattern == 6)
+			if (pattern == 1 || pattern == 3 || pattern == 5 || pattern == 6)
 			{
 				current_color_r1 = SAVED_COLORS_SCHEMA[colorIndex][0];
 				current_color_g1 = SAVED_COLORS_SCHEMA[colorIndex][1];
